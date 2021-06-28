@@ -22,10 +22,6 @@ contract BShibaFactory is Ownable {
     event Remove(address indexed nft);
     event Update(address indexed nft);
 
-    constructor() public {
-
-    }
-
     function create(address _owner, uint _mintLimit, string memory _baseURI) external onlyOwner returns (address) {
         address nft = address(new BShibaNFT(_mintLimit, _baseURI));
         Ownable(nft).transferOwnership(_owner);

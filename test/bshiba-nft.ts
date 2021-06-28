@@ -217,6 +217,17 @@ describe('Testing ShibaCorp NFT ...', () => {
         expect(nftInfo.mintLimit).eq(40);
     });
 
+    it('Mint without token URI', async() => {
+        const lastId = await nftInst1.lastId();
+        const lastURI = await nftInst1.tokenURI(lastId);
+        let tx = await (await nftInst1.connect(deployer).mintWithoutURI(account1.address)).wait();
+        const token = tx.events.filter(val => val.event == 'Mint')[0].args;
+        const newId = token.tokenId;
+        expect(newId).eq(lastId.add(1));
+        const newURI = await nftInst1.tokenURI(newId);
+        expect(newURI.replace("\u0000", "")).eq((await nftInst1.baseURI()) + "/" + newId);
+    });
+
     it('Check mint limitation', async() => {
         await nftDeployer.setMintLimit(nftInst3.address, 2);
         await nftInst3.connect(account2).mint(deployer.address, tokenURI1);

@@ -74,6 +74,12 @@ contract BShibaNFT is ERC721, Ownable {
         emit Mint(recipient, newItemId);
     }
 
+    function mintWithoutURI(address recipient) external returns (uint newItemId) {
+        newItemId = _tokenIds.current() + 1;
+        string memory newURI = string(abi.encodePacked("/", _uintToString(newItemId)));
+        mint(recipient, newURI);
+    }
+
     function setTokenURI(uint256 _tokenId, string memory _tokenURI) external whiteListed {
         require(_exists(_tokenId), "!exists");
         _setTokenURI(_tokenId, _tokenURI);
@@ -101,5 +107,25 @@ contract BShibaNFT is ERC721, Ownable {
 
     function left() external view returns (uint) {
         return totalSupply() > mintLimit ? 0 : mintLimit - totalSupply();
+    }
+
+    function lastId() external view returns (uint) {
+        return _tokenIds.current();
+    }
+
+    function _uintToString(uint v) internal pure returns (string memory str) {
+        uint maxlength = 100;
+        bytes memory reversed = new bytes(maxlength);
+        uint i = 0;
+        while (v != 0) {
+            uint remainder = v % 10;
+            v = v / 10;
+            reversed[i++] = bytes1(uint8(48 + remainder));
+        }
+        bytes memory s = new bytes(i + 1);
+        for (uint j = 0; j <= i; j++) {
+            s[j] = reversed[i - j];
+        }
+        str = string(s);
     }
 }

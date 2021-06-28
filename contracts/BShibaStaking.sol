@@ -20,9 +20,15 @@ contract BShibaStaking is Ownable {
         uint lastDeposited;
     }
 
+    struct Reward {
+        address collectible;
+        uint tokenId;
+    }
+
     address[] public collectibles;
     mapping(address => UserInfo) public userInfo;
     EnumerableSet.AddressSet users;
+    mapping(address => Reward[]) public rewards;
     mapping(uint => address) private deposits;
     mapping(address => EnumerableSet.UintSet) private userDeposits;
     EnumerableSet.UintSet candidates;
@@ -86,11 +92,15 @@ contract BShibaStaking is Ownable {
         keeper = msg.sender;
     }
 
+    function addCollectible(address _collectible) external onlyKeeper {
+        collectibles.push(_collectible);
+    }
+
     function balanceOf(address _user) public view returns (uint) {
         return userInfo[_user].amount;
     }
 
-    function deposit(uint _amount) external checkAmount(_amount) {
+    function deposit(uint _amount) external checkAmount(_amount) updateUserList {
         _amount -= _amount % stakingUnit; // Should be x times of stakingUnit
         stakingToken.safeTransferFrom(msg.sender, address(this), _amount);
 
@@ -98,10 +108,12 @@ contract BShibaStaking is Ownable {
         userInfo[msg.sender].amount += _amount;
         userInfo[msg.sender].lastDeposited = block.timestamp;
 
-        uint lastIndex = candidates.length();
-        candidates.add(lastIndex);
-        deposits[lastIndex] = msg.sender;
-        userDeposits[msg.sender].add(lastIndex);
+        for (uint i = 0; i < _amount/stakingUnit; i++) {
+            uint lastIndex = candidates.length();
+            candidates.add(lastIndex);
+            deposits[lastIndex] = msg.sender;
+            userDeposits[msg.sender].add(lastIndex);
+        }
     }
 
     function withdraw(uint _amount) public checkLocked updateUserList {
@@ -115,8 +127,10 @@ contract BShibaStaking is Ownable {
         user.lastDeposited = block.timestamp;
 
         for (uint i = 0; i < _amount/stakingUnit; i++) {
+            if (userDeposits[msg.sender].length() == 0) break;
+
             uint index = userDeposits[msg.sender].at(0);
-            if (userDeposits[msg.sender].length() > 0) userDeposits[msg.sender].remove(index);
+            userDeposits[msg.sender].remove(index);
             delete deposits[index];
             if (candidates.contains(index)) candidates.remove(index);
         }
@@ -134,23 +148,30 @@ contract BShibaStaking is Ownable {
         withdraw(balanceOf(msg.sender));
     }
 
-    function randomDrop(uint8 _maxChances) external onlyKeeper {
-        if (_maxChances > candidates.length()) _maxChances = uint8(users.length());
+    function claim() external checkUpTime {
+        for (uint i = 0; i < rewards[msg.sender].length; i++) {
+            uint tokenId = rewards[msg.sender][i].tokenId;
+            IBShibaNFT collectible = IBShibaNFT(rewards[msg.sender][i].collectible);
+            collectible.transfer(msg.sender, tokenId);
+        }
+        delete rewards[msg.sender];
+    }
+
+    function randomDrop(uint8 _maxChances) external onlyKeeper checkUpTime {
+        if (_maxChances > users.length()) _maxChances = uint8(users.length());
 
         _clearWinners();
         _clearWorkset();
         _makeAvailableCandidates();
-        uint8 winnerCount = 0;
         uint8 candidateCount = uint8(workset.length());
         uint8 count = 0;
-        while (winnerCount < _maxChances && workset.length() > 0) {
+        while (winners.length() < _maxChances && workset.length() > 0) {
             uint8 randomIndex = _random(candidateCount-count);
             uint candidateIndex = workset.at(randomIndex);
             address user = deposits[candidateIndex];
             if (!winners.contains(user)) {
                 winners.add(user);
                 userInfo[user].lastDeposited = block.timestamp;
-                winnerCount++;
             }
             workset.remove(candidateIndex);
             count++;
@@ -162,7 +183,8 @@ contract BShibaStaking is Ownable {
             address winner = winners.at(i);
             uint8 randomIndex = _random(uint8(workset.length()));
             IBShibaNFT collectible = IBShibaNFT(collectibles[workset.at(randomIndex)]);
-            collectible.mint(winner, "");
+            uint tokenId = collectible.mintWithoutURI(address(this));
+            rewards[winner].push(Reward(address(collectible), tokenId));
         }
     }
 
@@ -187,7 +209,7 @@ contract BShibaStaking is Ownable {
             uint candidateIndex = candidates.at(i);
             address user = deposits[candidateIndex];
             if (block.timestamp - userInfo[user].lastDeposited >= lockupDuration) {
-                workset.add(candidates.at(i));
+                workset.add(candidateIndex);
             }
         }
     }
