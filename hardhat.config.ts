@@ -47,21 +47,13 @@ export default {
     },
     networks: {
         testnet: {
-            url: "https://rpc-mumbai.matic.today/",
-            chainId: 80001,
+            url: "https://data-seed-prebsc-2-s3.binance.org:8545/",
+            chainId: 97,
             gas: 40000000,
             blockGasLimit: 9500000,
             gasPrice: 20000000000,
             accounts: { mnemonic: MNEMONIC_DV_TEST_WALLET },
         },
-        // testnet: {
-        //     url: "https://data-seed-prebsc-2-s3.binance.org:8545/",
-        //     chainId: 97,
-        //     gas: 40000000,
-        //     blockGasLimit: 9500000,
-        //     gasPrice: 20000000000,
-        //     accounts: { mnemonic: MNEMONIC_DV_TEST_WALLET },
-        // },
         hardhat: {
           forking: {
             url: "https://data-seed-prebsc-2-s3.binance.org:8545/"
@@ -77,16 +69,7 @@ export default {
             blockGasLimit: 9500000,
             gasPrice: 20000000000,
             accounts: { mnemonic: MNEMONIC_DV_TEST_WALLET },
-        },
-        matic: {
-          // url: "https://rpc-mainnet.matic.network/",
-          url: "https://matic-mainnet-archive-rpc.bwarelabs.com",
-          chainId: 137,
-          gas: 40000000,
-          blockGasLimit: 9500000,
-          gasPrice: 20000000000,
-          accounts: { mnemonic: MNEMONIC_DV_TEST_WALLET },
-      }
+        }
     },
     etherscan: {
         // Your API key for Etherscan
@@ -97,5 +80,8 @@ export default {
       alphaSort: true,
       runOnCompile: false,
       disambiguatePaths: false,
+    },
+    mocha: {
+      timeout: 40000
     }
 };
