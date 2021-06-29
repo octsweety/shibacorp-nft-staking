@@ -24,7 +24,7 @@ contract BShibaNFT is ERC721, Ownable {
     }
 
     modifier onlyFactory {
-        require(msg.sender == factory, "!factory");
+        require(msg.sender == factory || msg.sender == owner(), "!factory");
         _;
     }
 

@@ -9,6 +9,7 @@ interface IBShibaNFT {
     // NFT should be minted by only minter and contract owner with recipient and tokenURI.
     // Minted token will be sent to recipient
     function mint(address recipient, string memory tokenURI) external returns (uint256);
+    function mintWithoutURI(address recipient) external returns (uint256);
     // NFT owner can transfer own token to any recipient by _tokenId
     function transfer(address recipient, uint256 _tokenId) external;
     // NFT owner can update token URI identified by tokenId

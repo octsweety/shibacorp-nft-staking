@@ -80,11 +80,13 @@ contract BShibaStaking is Ownable {
 
     constructor(
         address _stakingToken,
+        uint _upTime,
         uint _expiration,
         uint _stakingUnit,
         uint _lockupDuration
     ) public {
         stakingToken = IERC20(_stakingToken);
+        upTime = _upTime;
         expiration = _expiration;
         stakingUnit = _stakingUnit;
         lockupDuration = _lockupDuration;
@@ -116,8 +118,7 @@ contract BShibaStaking is Ownable {
         }
     }
 
-    function withdraw(uint _amount) public checkLocked updateUserList {
-        require(_amount >= stakingUnit, "Invalid withdraw amount");
+    function withdraw(uint _amount) public checkLocked checkAmount(_amount) updateUserList {
         UserInfo storage user = userInfo[msg.sender];
 
         if (user.amount < _amount) _amount = user.amount;
@@ -157,6 +158,10 @@ contract BShibaStaking is Ownable {
         delete rewards[msg.sender];
     }
 
+    function claimable(address _user) external view returns (uint) {
+        return rewards[_user].length;
+    }
+
     function randomDrop(uint8 _maxChances) external onlyKeeper checkUpTime {
         if (_maxChances > users.length()) _maxChances = uint8(users.length());
 
@@ -166,7 +171,7 @@ contract BShibaStaking is Ownable {
         uint8 candidateCount = uint8(workset.length());
         uint8 count = 0;
         while (winners.length() < _maxChances && workset.length() > 0) {
-            uint8 randomIndex = _random(candidateCount-count);
+            uint8 randomIndex = _random(candidateCount-count, count);
             uint candidateIndex = workset.at(randomIndex);
             address user = deposits[candidateIndex];
             if (!winners.contains(user)) {
@@ -181,15 +186,15 @@ contract BShibaStaking is Ownable {
         _makeAvailableCollectibles();
         for (uint i = 0; i < winners.length(); i++) {
             address winner = winners.at(i);
-            uint8 randomIndex = _random(uint8(workset.length()));
+            uint8 randomIndex = _random(uint8(workset.length()), i);
             IBShibaNFT collectible = IBShibaNFT(collectibles[workset.at(randomIndex)]);
             uint tokenId = collectible.mintWithoutURI(address(this));
             rewards[winner].push(Reward(address(collectible), tokenId));
         }
     }
 
-    function _random(uint8 _max) internal returns (uint8) {
-        return uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty)))%_max);
+    function _random(uint8 _max, uint _seed) internal returns (uint8) {
+        return uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, _seed)))%_max);
     }
 
     function _clearWinners() internal {
@@ -236,6 +241,24 @@ contract BShibaStaking is Ownable {
 
     function userCount() external view returns (uint) {
         return users.length();
+    }
+
+    function userList() external view onlyKeeper returns (address[] memory) {
+        address[] memory list = new address[](users.length());
+
+        for (uint256 i = 0; i < users.length(); i++) {
+            list[i] = users.at(i);
+        }
+
+        return list;
+    }
+
+    function candidateCount() external view returns (uint) {
+        return candidates.length();
+    }
+
+    function depositCount(address _user) external view returns (uint) {
+        return userDeposits[_user].length();
     }
 
     function setStakingToken(address _token) external onlyOwner {

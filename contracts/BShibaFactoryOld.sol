@@ -6,9 +6,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 import "./BShibaNFT.sol";
 
-contract BShibaFactory is Ownable {
+contract BShibaFactoryOld is Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    struct NftInfo {
+        address addr;
+        uint mintLimit;
+        string baseURI;
+        address owner;
+        uint created;
+    }
+
+    mapping(address => NftInfo) public nftInfo;
     EnumerableSet.AddressSet nfts;
 
     event Creat(address indexed addr, address indexed owner, uint mintLimit, string baseURI);
@@ -18,6 +27,12 @@ contract BShibaFactory is Ownable {
     function create(address _owner, uint _mintLimit, string memory _baseURI) external onlyOwner returns (address) {
         address nft = address(new BShibaNFT(_mintLimit, _baseURI));
         Ownable(nft).transferOwnership(_owner);
+
+        nftInfo[nft].addr = nft;
+        nftInfo[nft].mintLimit = _mintLimit;
+        nftInfo[nft].baseURI = _baseURI;
+        nftInfo[nft].owner = _owner;
+        nftInfo[nft].created = block.timestamp;
 
         _checkOrAdd(nft);
         emit Creat(nft, _owner, _mintLimit, _baseURI);
@@ -29,26 +44,33 @@ contract BShibaFactory is Ownable {
         if (nfts.contains(_nft) == true) {
             nfts.remove(_nft);
         }
+        delete nftInfo[_nft];
 
         emit Remove(_nft);
+    }
+
+    function setBaseURI(address _nft, string memory _baseURI) external onlyOwner {
+        nftInfo[_nft].baseURI = _baseURI;
+        BShibaNFT(_nft).setBaseURI(_baseURI);
+
+        emit Update(_nft);
+    }
+
+    function setMintLimit(address _nft, uint _mintLimit) external onlyOwner {
+        nftInfo[_nft].mintLimit = _mintLimit;
+        BShibaNFT(_nft).setMintLimit(_mintLimit);
+
+        emit Update(_nft);
     }
 
     function count() external view returns (uint) {
         return nfts.length();
     }
 
-    function nftByIndex(uint _index) external view returns (address) {
-        require(_index < nfts.length(), "Invalid index");
-        return nfts.at(_index);
-    }
-
-    function nftList() external view returns (address[] memory) {
-        address[] memory list = new address[](nfts.length());
-        for (uint256 i = 0; i < nfts.length(); i++) {
-            list[i] = nfts.at(i);
-        }
-        return list;
-    }
+    // function nftInfoByIndex(uint _index) external returns (NftInfo memory) {
+    //     require(_index < nfts.length(), "Invalid index");
+    //     return nftInfo[nfts.at(_index)];
+    // }
 
     function _checkOrAdd(address _nft) internal {
         if (nfts.contains(_nft) == false) {

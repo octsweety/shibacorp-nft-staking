@@ -94,11 +94,6 @@ describe('Testing ShibaCorp NFT ...', () => {
         let tx = await (await nftDeployer.create(deployer.address, 10, baseURI)).wait();
         let nft = tx.events.filter(val => val.event == 'Creat')[0].args;
         // console.log(`Created new NFT (${nft.addr})`);
-        let nftInfo = await nftDeployer.nftInfo(nft.addr);
-        // console.log(nftInfo);
-        expect(nftInfo.mintLimit).eq(10);
-        expect(nftInfo.baseURI).eq(baseURI);
-        expect(nftInfo.owner).eq(deployer.address);
 
         nftInst1 = await bshibaNFTFactory.attach(nft.addr).connect(deployer.address);
         expect(nft.addr).eq(nftInst1.address);
@@ -107,17 +102,11 @@ describe('Testing ShibaCorp NFT ...', () => {
         nft = tx.events.filter(val => val.event == 'Creat')[0].args;
         nftInst2 = await bshibaNFTFactory.attach(nft.addr).connect(account1.address);
         expect(nft.addr).eq(nftInst2.address);
-        nftInfo = await nftDeployer.nftInfo(nft.addr);
-        expect(nftInfo.mintLimit).eq(20);
-        expect(nftInfo.owner).eq(account1.address);
 
         tx = await (await nftDeployer.create(account2.address, 30, baseURI)).wait();
         nft = tx.events.filter(val => val.event == 'Creat')[0].args;
         nftInst3 = await bshibaNFTFactory.attach(nft.addr).connect(account2.address);
         expect(nft.addr).eq(nftInst3.address);
-        nftInfo = await nftDeployer.nftInfo(nft.addr);
-        expect(nftInfo.mintLimit).eq(30);
-        expect(nftInfo.owner).eq(account2.address);
 
         const count = await nftDeployer.count();
         expect(count).eq(3);
@@ -187,34 +176,28 @@ describe('Testing ShibaCorp NFT ...', () => {
     it('Setting NFT contract', async() => {
         let _baseURI = await nftInst3.baseURI();
         let mintLimit = await nftInst3.mintLimit();
-        let nftInfo = await nftDeployer.nftInfo(nftInst3.address);
 
         expect(_baseURI).eq(baseURI);
         expect(mintLimit).eq(30);
-        expect(nftInfo.baseURI).eq(baseURI);
-        expect(nftInfo.mintLimit).eq(30);
 
         const newURI = "http://localhost";
         try {
-            await nftInst3.setBaseURI(newURI);
-            await nftInst3.setMintLimit(40);
+            await nftInst3.connect(deployer).setBaseURI(newURI);
+            await nftInst3.connect(deployer).setMintLimit(40);
         } catch (error) {
             if (error.message.indexOf("!factory") == -1) {
                 throw new Error(error.message);
             }
             console.log("Check permission to set NFT contract (OK)");
         }
-        await nftDeployer.setBaseURI(nftInst3.address, newURI);
-        await nftDeployer.setMintLimit(nftInst3.address, 40);
+        await nftInst3.connect(account2).setBaseURI(newURI);
+        await nftInst3.connect(account2).setMintLimit(40);
 
         _baseURI = await nftInst3.baseURI();
         mintLimit = await nftInst3.mintLimit();
-        nftInfo = await nftDeployer.nftInfo(nftInst3.address);
 
         expect(_baseURI).eq(newURI);
         expect(mintLimit).eq(40);
-        expect(nftInfo.baseURI).eq(newURI);
-        expect(nftInfo.mintLimit).eq(40);
     });
 
     it('Mint without token URI', async() => {
@@ -229,7 +212,7 @@ describe('Testing ShibaCorp NFT ...', () => {
     });
 
     it('Check mint limitation', async() => {
-        await nftDeployer.setMintLimit(nftInst3.address, 2);
+        await nftInst3.connect(account2).setMintLimit(2);
         await nftInst3.connect(account2).mint(deployer.address, tokenURI1);
         await nftInst3.connect(account2).mint(account1.address, tokenURI2);
         try {
@@ -243,11 +226,8 @@ describe('Testing ShibaCorp NFT ...', () => {
     });
 
     it('Remove NFT contract', async() => {
-        let nftInfo = await nftDeployer.nftInfo(nftInst3.address);
-        expect(nftInfo.owner).eq(account2.address);
+        let nft = await nftDeployer.nftByIndex(2);
         await nftDeployer.remove(nftInst3.address);
-        nftInfo = await nftDeployer.nftInfo(nftInst3.address);
-        expect(nftInfo.owner).eq(ethers.constants.AddressZero);
         const count = await nftDeployer.count();
         expect(count).eq(2);
     });
