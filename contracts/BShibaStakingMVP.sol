@@ -36,6 +36,9 @@ contract BShibaStakingMVP is Ownable {
     uint public stakingUnit = uint(1e9) * 50000000000; // 50 billions (9 decimals)
     uint public lockupDuration = 7 days;
 
+    uint public txFee = 0;
+    uint public MAX_FEE = 10000;
+
     address public keeper;
 
     modifier checkUpTime {
@@ -120,6 +123,9 @@ contract BShibaStakingMVP is Ownable {
         totalSupply -= _amount;
         user.amount -= _amount;
 
+        _amount -= _amount.mul(txFee).div(MAX_FEE);
+        if (stakingToken.balanceOf(address(this)) < _amount) _amount = stakingToken.balanceOf(address(this));
+
         stakingToken.safeTransfer(msg.sender, _amount);
     }
 
@@ -183,5 +189,10 @@ contract BShibaStakingMVP is Ownable {
 
     function setLockupDuration(uint _duration) external onlyOwner {
         lockupDuration = _duration;
+    }
+
+    function setTxFee(uint _fee) external onlyOwner {
+        require(_fee < MAX_FEE, "Invalid fee");
+        txFee = _fee;
     }
 }

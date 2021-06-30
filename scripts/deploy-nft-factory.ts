@@ -1,6 +1,6 @@
 import * as hre from 'hardhat';
-import { BShibaFactory } from '../types/ethers-contracts/BShibaFactory';
-import { BShibaFactory__factory } from '../types/ethers-contracts/factories/BShibaFactory__factory';
+import { BShibaFactoryFlatten } from '../types/ethers-contracts/BShibaFactoryFlatten';
+import { BShibaFactoryFlatten__factory } from '../types/ethers-contracts/factories/BShibaFactoryFlatten__factory';
 import address from '../address';
 
 require("dotenv").config();
@@ -36,8 +36,8 @@ async function deploy() {
     const mainnet = process.env.NETWORK == "mainnet" ? true : false;
     const nftFactoryAddress = mainnet ? address.mainnet.nftFactory : address.testnet.nftFactory;
 
-    const factory: BShibaFactory__factory = new BShibaFactory__factory(deployer);
-    let nftFactory: BShibaFactory = await factory.attach(nftFactoryAddress).connect(deployer);
+    const factory: BShibaFactoryFlatten__factory = new BShibaFactoryFlatten__factory(deployer);
+    let nftFactory: BShibaFactoryFlatten = await factory.attach(nftFactoryAddress).connect(deployer);
     if ("redeploy" && true) {
         nftFactory = await factory.deploy();
         
