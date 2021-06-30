@@ -73,10 +73,11 @@ describe('Testing ShibaCorp NFT ...', () => {
         const bshibaPoolFactory = new BShibaStakingMVP__factory(deployer);
         // 15 upTime, 7 lockup, 50m
         bshibaPool = await bshibaPoolFactory.deploy(bshiba.address, 1296000, parseShiba('50000000'), 604800);
+        await bshibaPool.setLockupDuration(0);
 
         console.log("ShibaCorp token address => ", bshiba.address);
         console.log("ShibaCorp NFT factory address => ", nftDeployer.address);
-        // console.log("bShiba staking pool address => ", bshibaPool.address);
+        console.log("bShiba staking pool address => ", bshibaPool.address);
     });
 
     after(async () => {
@@ -149,8 +150,6 @@ describe('Testing ShibaCorp NFT ...', () => {
     });
 
     it('Claim', async() => {
-        await bshibaPool.setLockupDuration(0);
-
         const count1 = (await bshibaPool.claimable(deployer.address)).toString();
         const count2 = (await bshibaPool.claimable(account1.address)).toString();
         const count3 = (await bshibaPool.claimable(account2.address)).toString();

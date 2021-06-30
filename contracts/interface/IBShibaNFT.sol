@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >0.6.0;
 
-// Basic NFT contract of Magi Kokiri market
 interface IBShibaNFT {
     // It is possible to update minter address by contract owner or minter self
     function setMinter(address _minter) external;

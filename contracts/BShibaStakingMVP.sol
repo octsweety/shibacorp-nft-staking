@@ -15,7 +15,7 @@ contract BShibaStakingMVP is Ownable {
     using EnumerableSet for EnumerableSet.UintSet;
 
     struct UserInfo {
-        uint points;
+        uint pendingReward;
         uint amount;
         uint lastDeposited;
     }
@@ -28,7 +28,6 @@ contract BShibaStakingMVP is Ownable {
     address[] public collectibles;
     mapping(address => UserInfo) public userInfo;
     EnumerableSet.AddressSet users;
-    mapping(address => Reward[]) public rewards;
 
     IERC20 public stakingToken;
     uint public totalSupply;
@@ -36,10 +35,6 @@ contract BShibaStakingMVP is Ownable {
     uint public expiration;
     uint public stakingUnit = uint(1e9) * 50000000000; // 50 billions (9 decimals)
     uint public lockupDuration = 7 days;
-
-    address public feeRecipient;
-    uint public withdrawalFee;
-    uint public MAX_FEE = 10000;
 
     address public keeper;
 
@@ -62,11 +57,6 @@ contract BShibaStakingMVP is Ownable {
         _;
     }
 
-    modifier onlyKeeper {
-        require(msg.sender == keeper || msg.sender == owner(), "!keeper");
-        _;
-    }
-
     modifier updateUserList {
         _;
         if (balanceOf(msg.sender) > 0) _checkOrAddUser(msg.sender);
@@ -84,11 +74,9 @@ contract BShibaStakingMVP is Ownable {
         expiration = _expiration;
         stakingUnit = _stakingUnit;
         lockupDuration = _lockupDuration;
-        feeRecipient = msg.sender;
-        keeper = msg.sender;
     }
 
-    function addCollectible(address _collectible) external onlyKeeper {
+    function addCollectible(address _collectible) external onlyOwner {
         collectibles.push(_collectible);
     }
 
@@ -96,23 +84,41 @@ contract BShibaStakingMVP is Ownable {
         return userInfo[_user].amount;
     }
 
+    function updateReward(address _user) public {
+        UserInfo storage user = userInfo[_user];
+        if (user.lastDeposited == 0) {
+            user.lastDeposited = block.timestamp;
+            return;
+        }
+
+        if (lockupDuration == 0) {
+            user.pendingReward += 1;
+        } else {
+            user.pendingReward += uint(user.amount / stakingUnit) * uint((block.timestamp - user.lastDeposited) / lockupDuration);
+        }
+
+        user.lastDeposited = block.timestamp;
+    }
+
     function deposit(uint _amount) external checkAmount(_amount) updateUserList {
+        updateReward(msg.sender);
+
         _amount -= _amount % stakingUnit; // Should be x times of stakingUnit
         stakingToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         totalSupply += _amount;
         userInfo[msg.sender].amount += _amount;
-        userInfo[msg.sender].lastDeposited = block.timestamp;
     }
 
     function withdraw(uint _amount) public checkLocked checkAmount(_amount) updateUserList {
+        updateReward(msg.sender);
+
         UserInfo storage user = userInfo[msg.sender];
 
         if (user.amount < _amount) _amount = user.amount;
         _amount -= _amount % stakingUnit; // Should be withdarwn x times of stakingUnit
         totalSupply -= _amount;
         user.amount -= _amount;
-        user.lastDeposited = block.timestamp;
 
         stakingToken.safeTransfer(msg.sender, _amount);
     }
@@ -123,23 +129,28 @@ contract BShibaStakingMVP is Ownable {
 
     function claim() external checkUpTime {
         require(collectibles.length > 0, "no collectibles");
-        require (userInfo[msg.sender].lastDeposited > 0 &&
-                block.timestamp - userInfo[msg.sender].lastDeposited >= lockupDuration, "unavailable to claim");
+        updateReward(msg.sender);
 
-        for (uint i = 0; i < userInfo[msg.sender].amount/stakingUnit; i++) {
+        uint mintedCount = 0;
+        for (uint i = 0; i < userInfo[msg.sender].pendingReward; i++) {
             IBShibaNFT collectible = IBShibaNFT(collectibles[0]);
-            collectible.mintWithoutURI(msg.sender);
+            if (collectible.left() > 0) {
+                collectible.mintWithoutURI(msg.sender);
+                mintedCount++;
+            }
         }
 
-        userInfo[msg.sender].lastDeposited = block.timestamp;
+        userInfo[msg.sender].pendingReward -= mintedCount;
     }
 
     function claimable(address _user) external view returns (uint) {
-        if (userInfo[msg.sender].lastDeposited > 0 && block.timestamp - userInfo[msg.sender].lastDeposited >= lockupDuration) {
-            return userInfo[_user].amount/stakingUnit;
+        UserInfo storage user = userInfo[_user];
+        uint reward = 1;
+        if (lockupDuration > 0) {
+             reward = uint(user.amount / stakingUnit) * uint((block.timestamp - user.lastDeposited) / lockupDuration);
         }
-
-        return 0;
+        
+        return user.pendingReward + reward;
     }
 
     function _removeUser(address _user) internal {
@@ -172,26 +183,5 @@ contract BShibaStakingMVP is Ownable {
 
     function setLockupDuration(uint _duration) external onlyOwner {
         lockupDuration = _duration;
-    }
-
-    function setUpTime(uint _time) external onlyOwner {
-        upTime = _time;
-    }
-
-    function setWithdarwalFee(uint _fee) external onlyOwner {
-        require(_fee < MAX_FEE, "Invalid fee");
-        withdrawalFee = _fee;
-    }
-
-    function setFeeRecipient(address _recipient) external onlyOwner {
-        feeRecipient = _recipient;
-    }
-
-    function setKeeper(address _keeper) external onlyOwner {
-        keeper = _keeper;
-    }
-
-    function pause() external onlyOwner {
-        upTime = 0;
     }
 }

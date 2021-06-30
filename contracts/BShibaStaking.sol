@@ -15,7 +15,6 @@ contract BShibaStaking is Ownable {
     using EnumerableSet for EnumerableSet.UintSet;
 
     struct UserInfo {
-        uint points;
         uint amount;
         uint lastDeposited;
     }
