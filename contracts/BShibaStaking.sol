@@ -43,6 +43,7 @@ contract BShibaStaking is Ownable {
 
     address public feeRecipient;
     uint public withdrawalFee;
+    uint public txFee = 0;
     uint public MAX_FEE = 10000;
 
     address public keeper;
@@ -135,13 +136,16 @@ contract BShibaStaking is Ownable {
             if (candidates.contains(index)) candidates.remove(index);
         }
 
+        
+        if (stakingToken.balanceOf(address(this)) < _amount) _amount = stakingToken.balanceOf(address(this));
+
         uint feeAmount = _amount.mul(withdrawalFee).div(MAX_FEE);
         if (feeAmount > 0) {
             _amount -= feeAmount;
-            stakingToken.safeTransfer(feeRecipient, feeAmount);
+            _safeTransfer(feeRecipient, feeAmount);
         }
 
-        stakingToken.safeTransfer(msg.sender, _amount);
+        _safeTransfer(msg.sender, _amount);
     }
 
     function withdrawAll() external {
@@ -236,6 +240,14 @@ contract BShibaStaking is Ownable {
         if (users.contains(_user) == false) {
             users.add(_user);
         }
+    }
+
+    function _safeTransfer(address _to, uint _amount) internal returns (uint) {
+        _amount -= _amount.mul(txFee).div(MAX_FEE);
+        if (stakingToken.balanceOf(address(this)) < _amount) {
+            _amount = stakingToken.balanceOf(address(this));
+        }
+        stakingToken.safeTransfer(_to, _amount);
     }
 
     function userCount() external view returns (uint) {
