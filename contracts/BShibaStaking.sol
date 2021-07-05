@@ -308,4 +308,12 @@ contract BShibaStaking is Ownable {
     function pause() external onlyOwner {
         upTime = 0;
     }
+
+    function withrawRestFunds() external onlyOwner {
+        uint currentBal = stakingToken.balanceOf(address(this));
+        uint currentFunds = totalSupply - totalSupply.mul(txFee).div(MAX_FEE);
+        if (currentBal > currentFunds) {
+            stakingToken.safeTransfer(msg.sender, currentBal.sub(currentFunds));
+        }
+    }
 }
