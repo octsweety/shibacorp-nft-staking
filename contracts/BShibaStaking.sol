@@ -5,10 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interface/IBShibaNFT.sol";
 
 
-contract BShibaStaking is Ownable {
+contract BShibaStaking is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -102,7 +103,7 @@ contract BShibaStaking is Ownable {
         return userInfo[_user].amount;
     }
 
-    function deposit(uint _amount) external checkAmount(_amount) updateUserList {
+    function deposit(uint _amount) external nonReentrant checkAmount(_amount) updateUserList {
         _amount -= _amount % stakingUnit; // Should be x times of stakingUnit
         stakingToken.safeTransferFrom(msg.sender, address(this), _amount);
 
@@ -111,7 +112,7 @@ contract BShibaStaking is Ownable {
         userInfo[msg.sender].lastDeposited = block.timestamp;
 
         for (uint i = 0; i < _amount/stakingUnit; i++) {
-            uint lastIndex = candidates.length();
+            uint lastIndex = candidates.length() == 0 ? 0 : (candidates.at(candidates.length()-1) + 1);
             candidates.add(lastIndex);
             deposits[lastIndex] = msg.sender;
             userDeposits[msg.sender].add(lastIndex);
@@ -152,7 +153,7 @@ contract BShibaStaking is Ownable {
         withdraw(balanceOf(msg.sender));
     }
 
-    function claim() external checkUpTime {
+    function claim() external nonReentrant checkUpTime {
         for (uint i = 0; i < rewards[msg.sender].length; i++) {
             uint tokenId = rewards[msg.sender][i].tokenId;
             IBShibaNFT collectible = IBShibaNFT(rewards[msg.sender][i].collectible);
@@ -174,7 +175,7 @@ contract BShibaStaking is Ownable {
         uint8 candidateCount = uint8(workset.length());
         uint8 count = 0;
         while (winners.length() < _maxChances && workset.length() > 0) {
-            uint8 randomIndex = _random(candidateCount-count, count);
+            uint8 randomIndex = _random(candidateCount-count, uint8(candidates.length()) + count);
             uint candidateIndex = workset.at(randomIndex);
             address user = deposits[candidateIndex];
             if (!winners.contains(user)) {
@@ -189,7 +190,7 @@ contract BShibaStaking is Ownable {
         _makeAvailableCollectibles();
         for (uint i = 0; i < winners.length(); i++) {
             address winner = winners.at(i);
-            uint8 randomIndex = _random(uint8(workset.length()), i);
+            uint8 randomIndex = _random(uint8(workset.length()), uint8(candidates.length()) + i);
             IBShibaNFT collectible = IBShibaNFT(collectibles[workset.at(randomIndex)]);
             uint tokenId = collectible.mintWithoutURI(address(this));
             rewards[winner].push(Reward(address(collectible), tokenId));
