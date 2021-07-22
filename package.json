@@ -6,7 +6,7 @@
     "clean": "rm -rf artifacts && rm -rf cache && rm -rf types && rm -rf flatten/*",
     "deploy": "npx hardhat run --network matic scripts/deploy.ts",
     "balance": "npx hardhat run --network matic scripts/account-balance.ts",
-    "test": "npx hardhat run --network matic scripts/test.ts"
+    "test": "npx hardhat test"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
